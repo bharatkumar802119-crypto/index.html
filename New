@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UPSC GS Paper-I QCAB Simulator (XXX-X-GSI/20)</title>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Noto+Serif+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e5e1d8; font-family: 'Noto Serif Devanagari', serif; color: #1a1a1a; }
+
+  /* Sticky Control Bar */
+  .toolbar {
+    position: sticky; top: 0; z-index: 200;
+    background: #1e293b; color: #fff;
+    padding: 8px 12px; display: flex; flex-wrap: wrap;
+    gap: 8px; align-items: center; justify-content: space-between;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  }
+  .toolbar-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .toolbar select, .toolbar button {
+    padding: 6px 10px; border-radius: 6px; border: 1px solid #475569;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .toolbar select { background: #0f172a; color: #f8fafc; max-width: 210px; }
+  .toolbar button { background: #334155; color: #fff; }
+  .toolbar button.active { background: #eab308; color: #0f172a; font-weight: 700; border-color: #eab308; }
+  .btn-gold { background: #eab308 !important; color: #0f172a !important; font-weight: 700; border: none !important; }
+  .btn-danger { background: #991b1b !important; color: #fff !important; border: none !important; }
+  .timer-box { background: #0f172a; border: 1px solid #334155; padding: 5px 10px; border-radius: 6px; font-family: monospace; font-size: 14px; color: #4ade80; display: flex; align-items: center; gap: 6px; }
+  .ink-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #94a3b8; cursor: pointer; display: inline-block; }
+  .ink-btn.selected { border-color: #eab308; transform: scale(1.15); }
+
+  /* Booklet Container */
+  .sheet-wrap { max-width: 830px; margin: 16px auto; padding: 0 8px 70px; }
+  .qcab-page {
+    background: #fff; border: 1px solid #cbd5e1;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    margin-bottom: 26px; position: relative;
+    min-height: 1020px; display: flex; flex-direction: column;
+  }
+
+  /* Cover & Instructions Styling */
+  .cover-box { padding: 24px 28px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 14px; }
+  .qr-mock { width: 76px; height: 76px; border: 2px solid #1e293b; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; text-align: center; }
+  .official-box { border: 1.5px solid #1e293b; padding: 10px 16px; font-size: 12px; text-align: center; }
+  .inst-box { border: 1.5px solid #1e293b; padding: 14px; margin: 14px 0; font-size: 13px; line-height: 1.6; }
+  .cand-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  .cand-table td, .cand-table th { border: 1.5px solid #1e293b; padding: 8px 10px; }
+  .cand-input { width: 100%; border: none; border-bottom: 1px dashed #64748b; font-family: 'Kalam', cursive; font-size: 16px; color: #1d4ed8; outline: none; background: transparent; }
+
+  /* Answer Sheet Grid */
+  .page-top { display: flex; justify-content: space-between; padding: 7px 16px; font-size: 11px; color: #475569; border-bottom: 1px solid #e2e8f0; }
+  .page-grid { display: grid; grid-template-columns: 54px 1fr 72px; flex: 1; position: relative; }
+  .margin-left { border-right: 1.5px solid #1e293b; padding: 14px 4px; font-weight: 700; font-size: 15px; text-align: center; }
+  .margin-right { border-left: 1.5px solid #1e293b; padding: 12px 4px; font-size: 9px; color: #334155; text-align: center; line-height: 1.35; }
+  .content-area { padding: 14px 16px; position: relative; display: flex; flex-direction: column; }
+
+  .q-box { border-bottom: 1px solid #94a3b8; padding-bottom: 10px; margin-bottom: 12px; }
+  .q-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+  .badge { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .q-text-hi { font-size: 15px; font-weight: 700; line-height: 1.55; margin-bottom: 4px; }
+  .q-text-en { font-size: 13.5px; color: #334155; line-height: 1.45; }
+
+  /* Writing & Drawing Layers */
+  .writing-stack { position: relative; flex: 1; min-height: 700px; }
+  .answer-editor {
+    width: 100%; height: 100%; min-height: 700px; outline: none;
+    font-family: 'Kalam', cursive; font-size: 19.5px; line-height: 1.85;
+    color: #1d4ed8; white-space: pre-wrap; position: relative; z-index: 2;
+  }
+  .answer-editor:empty:before {
+    content: attr(data-placeholder); color: #94a3b8; font-style: italic; font-size: 16px;
+  }
+  .draw-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    z-index: 1; pointer-events: none; touch-action: none;
+  }
+  body.pen-mode .draw-canvas { z-index: 5; pointer-events: auto; cursor: crosshair; }
+
+  .watermark {
+    position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%) rotate(-38deg);
+    font-size: 64px; font-weight: 700; color: rgba(234, 88, 12, 0.11);
+    pointer-events: none; letter-spacing: 6px; user-select: none; z-index: 0;
+  }
+  .page-foot { display: flex; justify-content: space-between; padding: 6px 16px; font-size: 11px; color: #334155; border-top: 1px solid #e2e8f0; }
+
+  .cancelled-stamp {
+    position: absolute; inset: 0; background: rgba(254, 226, 226, 0.45);
+    display: none; align-items: center; justify-content: center; pointer-events: none; z-index: 20;
+  }
+  .cancelled-stamp span {
+    border: 4px solid #dc2626; color: #dc2626; font-size: 32px; font-weight: 700;
+    padding: 8px 24px; transform: rotate(-22deg); background: rgba(255,255,255,0.9);
+  }
+
+  @media print {
+    .toolbar, .no-print { display: none !important; }
+    body { background: #fff; }
+    .sheet-wrap { max-width: 100%; margin: 0; padding: 0; }
+    .qcab-page { box-shadow: none; border: none; page-break-after: always; margin: 0; min-height: 100vh; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar no-print">
+  <div class="toolbar-group">
+    <select id="paperSelect" onchange="changePaper()">
+      <option value="2020">GS-I 2020 (Official)</option>
+      <option value="2023">GS-I 2023 अभ्यास</option>
+      <option value="2024">GS-I 2024 अभ्यास</option>
+      <option value="2025">GS-I 2025 अभ्यास</option>
+      <option value="custom">खाली अभ्यास पुस्तिका</option>
+    </select>
+    <select id="qNav" onchange="scrollToSection(this.value)"></select>
+  </div>
+
+  <div class="toolbar-group">
+    <button id="btnTypeMode" class="active" onclick="setMode('type')">⌨️ टाइपिंग</button>
+    <button id="btnPenMode" onclick="setMode('pen')">✍️ पेन / पेंसिल</button>
+    <button onclick="execCmd('underline')" title="Underline"><b><u>U</u></b></button>
+    <button onclick="wrapBox()" title="Box Keyword">[Box]</button>
+    <span class="ink-btn selected" id="inkBlue" style="background:#1d4ed8;" title="नीली स्याही" onclick="setInk('#1d4ed8', this)"></span>
+    <span class="ink-btn" id="inkBlack" style="background:#111827;" title="काली स्याही" onclick="setInk('#111827', this)"></span>
+    <span class="ink-btn" id="inkPencil" style="background:#64748b;" title="पेंसिल (केवल आरेख/मानचित्र हेतु)" onclick="setPencil(this)"></span>
+  </div>
+
+  <div class="toolbar-group">
+    <div class="timer-box">
+      <span id="timerDisplay">03:00:00</span>
+      <button onclick="toggleTimer()" id="timerBtn" style="padding:2px 6px; font-size:11px;">▶</button>
+    </div>
+    <button class="btn-gold" onclick="window.print()">🖨️ PDF / प्रिंट</button>
+    <button class="btn-danger" onclick="resetBooklet()" title="सब साफ़ करें">↺</button>
+  </div>
+</div>
+
+<div class="sheet-wrap" id="bookletContainer"></div>
+
+<script>
+const PAPERS = {
+  "2020": [
+    { q: 1, marks: 10, words: 150, pages: 2, hi: "शैलकृत स्थापत्य प्रारंभिक भारतीय कला एवं इतिहास के ज्ञान के अति महत्त्वपूर्ण स्रोतों में से एक का प्रतिनिधित्व करता है। विवेचना कीजिए।", en: "The rock-cut architecture represents one of the most important sources of our knowledge of early Indian art and history. Discuss." },
+    { q: 2, marks: 10, words: 150, pages: 2, hi: "भारत में बौद्ध धर्म के इतिहास में पाल काल अति महत्त्वपूर्ण चरण है। विश्लेषण कीजिए।", en: "Pala period is the most significant phase in the history of Buddhism in India. Enumerate." },
+    { q: 3, marks: 10, words: 150, pages: 2, hi: "लॉर्ड कर्जन की नीतियों एवं राष्ट्रीय आंदोलन पर उनके दूरगामी प्रभावों का मूल्यांकन कीजिए।", en: "Evaluate the policies of Lord Curzon and their long term implications on the national movement." },
+    { q: 4, marks: 10, words: 150, pages: 2, hi: "परि-प्रशान्त क्षेत्र के भू-भौतिकीय अभिलक्षणों का विवेचन कीजिए।", en: "Discuss the geophysical characteristics of Circum-Pacific Zone." },
+    { q: 5, marks: 10, words: 150, pages: 2, hi: "मरुस्थलीकरण के प्रक्रम की जलवायविक सीमाएँ नहीं होती हैं। उदाहरणों सहित औचित्य सिद्ध कीजिए।", en: "The process of desertification does not have climatic boundaries. Justify with examples." },
+    { q: 6, marks: 10, words: 150, pages: 2, hi: "हिमालय के हिमनदों के पिघलने का भारत के जल-संसाधनों पर किस प्रकार दूरगामी प्रभाव होगा?", en: "How will the melting of Himalayan glaciers have a far-reaching impact on the water resources of India?" },
+    { q: 7, marks: 10, words: 150, pages: 2, hi: "वर्तमान में लौह एवं इस्पात उद्योगों की कच्चे माल के स्रोत से दूर स्थिति का उदाहरणों सहित कारण बताइए।", en: "Account for the present location of iron and steel industries away from the source of raw material, by giving examples." },
+    { q: 8, marks: 10, words: 150, pages: 2, hi: "बहु-सांस्कृतिक भारतीय समाज को समझने में क्या जाति की प्रासंगिकता समाप्त हो गई है? उदाहरणों सहित विस्तृत उत्तर दीजिए।", en: "Has caste lost its relevance in understanding the multi-cultural Indian Society? Elaborate your answer with illustrations." },
+    { q: 9, marks: 10, words: 150, pages: 2, hi: "कोविड-19 महामारी ने भारत में वर्ग असमानताओं एवं ग़रीबी को गति दे दी है। टिप्पणी कीजिए।", en: "COVID-19 pandemic accelerated class inequalities and poverty in India. Comment." },
+    { q: 10, marks: 10, words: 150, pages: 2, hi: "क्या आप सहमत हैं कि भारत में क्षेत्रीयता बढ़ती हुई सांस्कृतिक मुखरता का परिणाम प्रतीत होती है? तर्क कीजिए।", en: "Do you agree that regionalism in India appears to be a consequence of rising cultural assertiveness? Argue." },
+    { q: 11, marks: 15, words: 250, pages: 3, hi: "भारतीय दर्शन एवं परम्परा ने भारतीय स्मारकों की कल्पना और आकार देने एवं उनकी कला में महत्त्वपूर्ण भूमिका निभाई है। विवेचना कीजिए।", en: "Indian philosophy and tradition played a significant role in conceiving and shaping the monuments and their art in India. Discuss." },
+    { q: 12, marks: 15, words: 250, pages: 3, hi: "मध्यकालीन भारत के फ़ारसी साहित्यिक स्रोत उस काल के युगबोध का प्रतिबिंब हैं। टिप्पणी कीजिए।", en: "Persian literary sources of medieval India reflect the spirit of the age. Comment." },
+    { q: 13, marks: 15, words: 250, pages: 3, hi: "1920 के दशक से राष्ट्रीय आंदोलन ने कई वैचारिक धाराओं को ग्रहण किया और अपना सामाजिक आधार बढ़ाया। विवेचना कीजिए।", en: "Since the decade of the 1920s, the national movement acquired various ideological strands and thereby expanded its social base. Discuss." },
+    { q: 14, marks: 15, words: 250, pages: 3, hi: "नदियों को आपस में जोड़ना सूखा, बाढ़ और बाधित जल-परिवहन जैसी बहु-आयामी अन्तर्सम्बन्धित समस्याओं का व्यवहार्य समाधान दे सकता है। आलोचनात्मक परीक्षण कीजिए।", en: "The interlinking of rivers can provide viable solutions to the multi-dimensional inter-related problems of droughts, floods and interrupted navigation. Critically examine." },
+    { q: 15, marks: 15, words: 250, pages: 3, hi: "भारत में दशलक्षीय नगरों जिनमें हैदराबाद एवं पुणे जैसे स्मार्ट सिटीज़ भी सम्मिलित हैं, में व्यापक बाढ़ के कारण बताइए। स्थायी निराकरण के उपाय भी सुझाइए।", en: "Account for the huge flooding of million cities in India including the smart ones like Hyderabad and Pune. Suggest lasting remedial measures." },
+    { q: 16, marks: 15, words: 250, pages: 3, hi: "भारत में सौर ऊर्जा की प्रचुर संभावनाएँ हैं हालाँकि इसके विकास में क्षेत्रीय भिन्नताएँ हैं। विस्तृत वर्णन कीजिए।", en: "India has immense potential of solar energy though there are regional variations in its development. Elaborate." },
+    { q: 17, marks: 15, words: 250, pages: 3, hi: "भारत के वन संसाधनों की स्थिति एवं जलवायु परिवर्तन पर उसके परिणामी प्रभावों का परीक्षण कीजिए।", en: "Examine the status of forest resources of India and its resultant impact on climate change." },
+    { q: 18, marks: 15, words: 250, pages: 3, hi: "क्या भारत में विविधता एवं बहुलवाद वैश्वीकरण के कारण संकट में हैं? औचित्यपूर्ण उत्तर दीजिए।", en: "Is diversity and pluralism in India under threat due to globalisation? Justify your answer." },
+    { q: 19, marks: 15, words: 250, pages: 3, hi: "रीति-रिवाजों एवं परम्पराओं द्वारा तर्क को दबाने से प्रगतिविरोध उत्पन्न हुआ है। क्या आप इससे सहमत हैं?", en: "Customs and traditions suppress reason leading to obscurantism. Do you agree?" },
+    { q: 20, marks: 15, words: 250, pages: 3, hi: "भारत में डिजिटल पहल ने किस प्रकार से देश की शिक्षा व्यवस्था के संचालन में योगदान किया है? विस्तृत उत्तर दीजिए।", en: "How have digital initiatives in India contributed to the functioning of the education system in the country? Elaborate your answer." }
+  ],
+  "2023": Array.from({length: 20}, (_, i) => ({
+    q: i + 1, marks: i < 10 ? 10 : 15, words: i < 10 ? 150 : 250, pages: i < 10 ? 2 : 3,
+    hi: i === 0 ? "प्राचीन भारतीय सभ्यता के विकास में भौगोलिक कारकों की भूमिका की व्याख्या कीजिए।" : (i === 1 ? "महात्मा गांधी और रवींद्रनाथ टैगोर के बीच शिक्षा और राष्ट्रवाद के प्रति दृष्टिकोण में क्या अंतर था?" : "[GS-I 2023 अभ्यास प्रश्न " + (i+1) + "] '✏️ प्रश्न बदलें' दबाकर प्रश्न संपादित करें।"),
+    en: i === 0 ? "Explain the role of geographical factors towards the development of Ancient India." : (i === 1 ? "What was the difference between Mahatma Gandhi and Rabindranath Tagore in their approach towards education and nationalism?" : "[GS-I 2023 Practice Question " + (i+1) + "] Click 'Edit Question' to customize.")
+  })),
+  "2024": Array.from({length: 20}, (_, i) => ({
+    q: i + 1, marks: i < 10 ? 10 : 15, words: i < 10 ? 150 : 250, pages: i < 10 ? 2 : 3,
+    hi: i === 0 ? "प्राचीन भारतीय मंदिर स्थापत्य के विकास में गुप्त काल तथा चोल काल के योगदानों का परीक्षण कीजिए।" : (i === 1 ? "भारत छोड़ो आंदोलन की प्रकृति और भारतीय स्वतंत्रता संग्राम में इसके महत्त्व का विश्लेषण कीजिए।" : "[GS-I 2024 अभ्यास प्रश्न " + (i+1) + "] '✏️ प्रश्न बदलें' दबाकर प्रश्न संपादित करें।"),
+    en: i === 0 ? "Examine the contributions of the Gupta and Chola periods in the development of ancient Indian temple architecture." : (i === 1 ? "Analyze the nature of the Quit India Movement and its significance in the Indian freedom struggle." : "[GS-I 2024 Practice Question " + (i+1) + "] Click 'Edit Question' to customize.")
+  })),
+  "2025": Array.from({length: 20}, (_, i) => ({
+    q: i + 1, marks: i < 10 ? 10 : 15, words: i < 10 ? 150 : 250, pages: i < 10 ? 2 : 3,
+    hi: "[GS-I 2025 अभ्यास प्रश्न " + (i+1) + "] '✏️ प्रश्न बदलें' दबाकर नया प्रश्न लिखें या पेस्ट करें।",
+    en: "[GS-I 2025 Practice Question " + (i+1) + "] Click 'Edit Question' above to type or paste your question."
+  })),
+  "custom": Array.from({length: 20}, (_, i) => ({
+    q: i + 1, marks: i < 10 ? 10 : 15, words: i < 10 ? 150 : 250, pages: i < 10 ? 2 : 3,
+    hi: "[कस्टम अभ्यास प्रश्न " + (i+1) + "] ऊपर दिए गए '✏️ प्रश्न बदलें' बटन पर क्लिक करके अपना मनचाहा प्रश्न लिखें।",
+    en: "[Custom Practice Question " + (i+1) + "] Click 'Edit Question' above to type or paste your own question."
+  }))
+};
+
+let activePaper = '2020';
+let currentInk = '#1d4ed8';
+let strokeColor = '#1d4ed8';
+let currentMode = 'type';
+let secondsLeft = 3 * 3600;
+let timerInterval = null;
+
+function setMode(mode) {
+  currentMode = mode;
+  document.body.classList.toggle('pen-mode', mode === 'pen');
+  document.getElementById('btnTypeMode').classList.toggle('active', mode === 'type');
+  document.getElementById('btnPenMode').classList.toggle('active', mode === 'pen');
+}
+
+function setInk(color, el) {
+  currentInk = color;
+  strokeColor = color;
+  document.querySelectorAll('.ink-btn').forEach(b => b.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  document.querySelectorAll('.answer-editor').forEach(ed => ed.style.color = color);
+}
+
+function setPencil(el) {
+  strokeColor = '#64748b';
+  document.querySelectorAll('.ink-btn').forEach(b => b.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  setMode('pen');
+}
+
+function execCmd(cmd) { document.execCommand(cmd, false, null); }
+
+function wrapBox() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const text = sel.toString();
+  if (text) {
+    document.execCommand('insertHTML', false, '<span style="border:1.5px solid currentColor; padding:1px 6px; border-radius:3px;">' + text + '</span>');
+  }
+}
+
+function toggleTimer() {
+  const btn = document.getElementById('timerBtn');
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    btn.innerText = '▶';
+  } else {
+    btn.innerText = '⏸';
+    timerInterval = setInterval(() => {
+      if (secondsLeft > 0) {
+        secondsLeft--;
+        const h = String(Math.floor(secondsLeft / 3600)).padStart(2, '0');
+        const m = String(Math.floor((secondsLeft % 3600) / 60)).padStart(2, '0');
+        const s = String(secondsLeft % 60).padStart(2, '0');
+        document.getElementById('timerDisplay').innerText = `${h}:${m}:${s}`;
+      }
+    }, 1000);
+  }
+}
+
+function changePaper() {
+  activePaper = document.getElementById('paperSelect').value;
+  renderBooklet();
+}
+
+function editQ(idx) {
+  const item = PAPERS[activePaper][idx];
+  const newHi = prompt("नया प्रश्न (हिंदी में) लिखें:", item.hi);
+  if (newHi !== null && newHi.trim() !== "") {
+    item.hi = newHi.trim();
+    const newEn = prompt("New Question (in English - optional):", item.en);
+    if (newEn !== null) item.en = newEn.trim();
+    renderBooklet();
+  }
+}
+
+function toggleCancel(qNum) {
+  const el = document.getElementById('cancel-' + qNum);
+  el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+}
+
+function countWords(qNum, limit) {
+  let total = 0;
+  document.querySelectorAll('.ed-q-' + qNum).forEach(ed => {
+    const txt = ed.innerText.trim();
+    if (txt) total += txt.split(/\s+/).length;
+  });
+  document.getElementById('wc-' + qNum).innerText = `${total} / ${limit} शब्द`;
+  saveProgress();
+}
+
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+}
+
+function initCanvases() {
+  document.querySelectorAll('.draw-canvas').forEach(canvas => {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width || 650;
+    canvas.height = rect.height || 700;
+    const ctx = canvas.getContext('2d');
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    let drawing = false;
+
+    const getPos = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - r.left, y: clientY - r.top };
+    };
+
+    const start = (e) => {
+      if (currentMode !== 'pen') return;
+      drawing = true;
+      const p = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = strokeColor === '#64748b' ? 1.5 : 2;
+    };
+    const move = (e) => {
+      if (!drawing || currentMode !== 'pen') return;
+      e.preventDefault();
+      const p = getPos(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    };
+    const end = () => { drawing = false; };
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+  });
+}
+
+function saveProgress() {
+  const data = {};
+  document.querySelectorAll('.answer-editor').forEach(ed => {
+    if (ed.id) data[ed.id] = ed.innerHTML;
+  });
+  try { localStorage.setItem('vardaraj_qcab_' + activePaper, JSON.stringify(data)); } catch (e) {}
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem('vardaraj_qcab_' + activePaper);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    Object.keys(data).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = data[id];
+    });
+  } catch (e) {}
+}
+
+function resetBooklet() {
+  if (confirm("क्या आप इस पुस्तिका के सभी लिखे हुए उत्तर साफ़ करना चाहते हैं?")) {
+    localStorage.removeItem('vardaraj_qcab_' + activePaper);
+    renderBooklet();
+  }
+}
+
+function renderBooklet() {
+  const list = PAPERS[activePaper];
+  const nav = document.getElementById('qNav');
+  const container = document.getElementById('bookletContainer');
+  nav.innerHTML = '';
+  container.innerHTML = '';
+
+  // Nav option for Cover Page
+  const coverOpt = document.createElement('option');
+  coverOpt.value = 'cover-page';
+  coverOpt.textContent = '📄 मुख पृष्ठ व निर्देश (Pages 1-3)';
+  nav.appendChild(coverOpt);
+
+  // Page 1: Cover Page
+  const coverDiv = document.createElement('div');
+  coverDiv.className = 'qcab-page';
+  coverDiv.id = 'cover-page';
+  coverDiv.innerHTML = `
+    <div class="cover-box">
+      <div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; margin-bottom:10px;">
+          <span>SPECIMEN QCAB FOR GENERAL STUDIES PAPERS</span>
+          <span>XXX-X-GSI/20</span>
+        </div>
+        <div class="cover-header">
+          <div class="qr-mock">QR CODE<br>1000066</div>
+          <div style="text-align:center;">
+            <div style="font-size:20px; font-weight:700;">सामान्य अध्ययन — प्रश्न-पत्र I</div>
+            <div style="font-size:17px; font-weight:700;">GENERAL STUDIES — Paper I</div>
+            <div style="font-size:12px; margin-top:6px;">निर्धारित समय : तीन घंटे | अधिकतम अंक : 250</div>
+          </div>
+          <div class="official-box">कार्यालय के प्रयोग हेतु<br>For Official Use</div>
+        </div>
+        <div class="inst-box">
+          <div style="text-align:center; font-weight:700; margin-bottom:6px;">महत्त्वपूर्ण अनुदेश / Important Instructions</div>
+          <p>• इस प्रश्न-सह-उत्तर (क्यू.सी.ए.) पुस्तिका में 60+4 पृष्ठ हैं। प्रश्न संख्या 1 से 10 तक का उत्तर 150 शब्दों में तथा प्रश्न संख्या 11 से 20 तक का उत्तर 250 शब्दों में दीजिए।</p>
+          <p style="margin-top:4px;">• उत्तर केवल एक ही रंग की स्याही (नीली या काली) में लिखें। आरेख/मानचित्र बनाने के लिए पेंसिल का उपयोग किया जा सकता है।</p>
+          <p style="margin-top:4px;">• पुस्तिका में कहीं भी अपना नाम, रोल नंबर या पहचान उजागर करने वाला कोई चिह्न न लिखें।</p>
+        </div>
+      </div>
+      <div>
+        <div style="text-align:center; font-weight:700; font-size:13px; margin-bottom:6px;">(उम्मीदवार द्वारा भरा जाए / To be filled by the Candidate)</div>
+        <table class="cand-table">
+          <tr>
+            <td style="width:45%;"><b>परीक्षा का नाम / Examination:</b></td>
+            <td><input class="cand-input" value="Civil Services (Main) Examination"></td>
+          </tr>
+          <tr>
+            <td><b>परीक्षा का माध्यम / Medium:</b></td>
+            <td><input class="cand-input" value="हिन्दी / Hindi"></td>
+          </tr>
+          <tr>
+            <td><b>अनुक्रमांक / Roll No.:</b></td>
+            <td><input class="cand-input" placeholder="केवल यहीं लिखें (पुस्तिका के अंदर नहीं)"></td>
+          </tr>
+        </table>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:#475569;">
+        <span>VARDARAJ IAS — Perfection Through Practice</span>
+        <span>पृष्ठ 1–3</span>
+      </div>
+    </div>
+  `;
+  container.appendChild(coverDiv);
+
+  // Pages 4 to 53: Questions 1 to 20
+  let pageCounter = 4;
+  list.forEach((item, idx) => {
+    const startP = pageCounter;
+    const endP = pageCounter + item.pages - 1;
+    const shortTitle = item.hi.replace(/\[.*?\]/g, '').trim().slice(0, 22) + '...';
+    const opt = document.createElement('option');
+    opt.value = 'q-block-' + item.q;
+    opt.textContent = `Q${item.q} (पृष्ठ ${startP}-${endP}) - ${shortTitle}`;
+    nav.appendChild(opt);
+
+    for (let p = 0; p < item.pages; p++) {
+      const isFirst = (p === 0);
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'qcab-page';
+      if (isFirst) pageDiv.id = 'q-block-' + item.q;
+
+      pageDiv.innerHTML = `
+        ${isFirst ? `<div class="cancelled-stamp" id="cancel-${item.q}"><span>रद्द / CANCELLED</span></div>` : ''}
+        <div class="page-top"><span>XXX-X-GSI/20</span><span>पृष्ठ ${pageCounter}</span></div>
+        <div class="page-grid">
+          <div class="margin-left">${isFirst ? 'Q' + item.q + '.' : ''}</div>
+          <div class="content-area">
+            <div class="watermark">SPECIMEN</div>
+            ${isFirst ? `
+              <div class="q-box">
+                <div class="q-meta no-print">
+                  <span class="badge" id="wc-${item.q}">0 / ${item.words} शब्द</span>
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button onclick="editQ(${idx})">✏️ प्रश्न बदलें</button>
+                    <button style="color:#dc2626;" onclick="toggleCancel(${item.q})">रद्द करें</button>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:10px;">
+                  <div>
+                    <div class="q-text-hi">${item.hi} (${item.words} शब्दों में उत्तर दीजिए)</div>
+                    <div class="q-text-en">${item.en} (Answer in ${item.words} words)</div>
+                  </div>
+                  <div style="font-weight:700; font-size:15px;">${item.marks}</div>
+                </div>
+              </div>
+            ` : ''}
+            <div class="writing-stack">
+              <canvas class="draw-canvas"></canvas>
+              <div class="answer-editor ed-q-${item.q}" id="ed-${item.q}-${p}" contenteditable="true" style="color:${currentInk};"
+                data-placeholder="${isFirst ? 'यहाँ से प्रश्न ' + item.q + ' का उत्तर लिखें... (सीधे भूमिका से शुरू करें, उत्तर लिखना आवश्यक नहीं)' : 'प्रश्न ' + item.q + ' का शेष उत्तर यहाँ जारी रखें...'}"
+                oninput="countWords(${item.q}, ${item.words})"></div>
+            </div>
+          </div>
+          <div class="margin-right">उम्मीदवारों को इस हाशिए में नहीं लिखना चाहिए<br><br>Candidates must not write on this margin</div>
+        </div>
+        <div class="page-foot"><span>XXX-X-GSI/20</span><span>${pageCounter}</span></div>
+      `;
+      container.appendChild(pageDiv);
+      pageCounter++;
+    }
+  });
+
+  // Page 54-59: Rough Work
+  const roughOpt = document.createElement('option');
+  roughOpt.value = 'rough-page';
+  roughOpt.textContent = '📝 रफ़ कार्य (Pages 54-59)';
+  nav.appendChild(roughOpt);
+
+  const roughDiv = document.createElement('div');
+  roughDiv.className = 'qcab-page';
+  roughDiv.id = 'rough-page';
+  roughDiv.innerHTML = `
+    <div class="page-top"><span>XXX-X-GSI/20</span><span>पृष्ठ 54–59</span></div>
+    <div class="content-area" style="flex:1;">
+      <div style="text-align:center; font-weight:700; font-size:14px; margin-bottom:12px;">रफ़ कार्य के लिए जगह / SPACE FOR ROUGH WORK</div>
+      <div class="writing-stack">
+        <canvas class="draw-canvas"></canvas>
+        <div class="answer-editor" id="rough-editor" contenteditable="true" style="color:${currentInk};"
+          data-placeholder="यहाँ उत्तरों की रूपरेखा (Rough Outline) तैयार करें..." oninput="saveProgress()"></div>
+      </div>
+    </div>
+    <div class="page-foot"><span>XXX-X-GSI/20</span><span>54–59</span></div>
+  `;
+  container.appendChild(roughDiv);
+
+  loadProgress();
+  list.forEach(item => countWords(item.q, item.words));
+  setTimeout(initCanvases, 100);
+}
+
+renderBooklet();
+</script>
+</body>
+</html>
